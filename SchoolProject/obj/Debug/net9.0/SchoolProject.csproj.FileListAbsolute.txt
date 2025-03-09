@@ -31,3 +31,6 @@
 /Users/obedado/Documents/Csharp opdracht/SchoolProject/SchoolProject/obj/Debug/net9.0/SchoolProject.pdb
 /Users/obedado/Documents/Csharp opdracht/SchoolProject/SchoolProject/obj/Debug/net9.0/SchoolProject.genruntimeconfig.cache
 /Users/obedado/Documents/Csharp opdracht/SchoolProject/SchoolProject/obj/Debug/net9.0/ref/SchoolProject.dll
+/Users/obedado/Documents/Csharp opdracht/SchoolProject/SchoolProject/bin/Debug/net9.0/Newtonsoft.Json.dll
+/Users/obedado/Documents/Csharp opdracht/SchoolProject/SchoolProject/bin/Debug/net9.0/System.Net.WebSockets.WebSocketProtocol.dll
+/Users/obedado/Documents/Csharp opdracht/SchoolProject/SchoolProject/obj/Debug/net9.0/SchoolProject.sourcelink.json
