@@ -31,7 +31,7 @@ public class TemperatureSensorParser : ISensorParser
                 new Dictionary<string, object>
                 {
                     { "type", "Temperature" },
-                    { "value", temp / 10 }, // Convert to correct temperature format
+                    { "value", temp / 10 }, // Convert naar correct temperatuur formaat
                     { "unit", "Celsius" },
                     { "timestamp", timestamp }
                 },

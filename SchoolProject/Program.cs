@@ -1,4 +1,3 @@
-using SignalRChat.Hubs;
 using Schoolproject.Sensordata;
 using Schoolproject.Services;
 
