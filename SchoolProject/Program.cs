@@ -1,36 +1,49 @@
 using SignalRChat.Hubs;
-using Schoolproject.Sensordata; 
+using Schoolproject.Sensordata;
+using Schoolproject.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Roep de Singleton aan om sensorData.txt in te laden
-var instance = SensorDataSingleton.Instance; 
+// Registreer services
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.WriteIndented = true; // Schakel pretty-print JSON in
+});
+builder.Services.AddSingleton<SensorDataSingleton>(provider => SensorDataSingletonFactory.Create());
+builder.Services.AddSignalR(); // Voeg SignalR toe
+builder.Services.AddSingleton<FileWatcherService>(); // Voeg FileWatcherService toe
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
-builder.Services.AddSignalR();
+// CORS-configuratie
+var corsPolicy = "_allowSpecificOrigins";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: corsPolicy,
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:5173") // Sta Vue-app toe
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        });
+});
 
 var app = builder.Build();
 
-app.MapHub<ChatHub>("/chatHub");
+// Middleware configuratie
+app.UseRouting();       
+app.UseCors(corsPolicy); 
+app.UseAuthorization();
 
-// 1. Creëer SignalR Hub
-
-// 2. Definieer een functie die constant data uitleest van een Pi -> (PICO -> Mockdata) -> 
-// 3. Op het moment dat je dat ontvangt, wil je dit beschikbaar stellen voor je client -> (Signal R)
-// 4. Client moet nieuwe data kunnen ontvangen wanneer er nieuwe data beschikbaar is -> (Signal R)
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Voeg controllers toe!
+app.UseEndpoints(endpoints =>
 {
-    app.MapOpenApi();
-}
+    endpoints.MapControllers();  //  Belangrijk voor API-routes!
+    endpoints.MapHub<SensorHub>("/sensorHub").RequireCors(corsPolicy);
+});
 
-// Verwijder of commentarieer de regel uit die de HTTPS-redirect uitvoert
-// app.UseHttpsRedirection(); 
+// Start FileWatcherService
+var fileWatcher = app.Services.GetRequiredService<FileWatcherService>();
+fileWatcher.StartWatching();
 
-// Stel de URL in voor alleen HTTP
-app.Urls.Add("http://localhost:5000");
-
+app.Urls.Add("http://localhost:5000"); // Stel de URL in voor de backend
 app.Run();

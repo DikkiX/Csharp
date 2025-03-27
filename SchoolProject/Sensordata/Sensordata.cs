@@ -1,73 +1,106 @@
-namespace Schoolproject.Sensordata;
-
+using Schoolproject.Models;  // Zorg ervoor dat het correct naar de Models namespace verwijst
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
-using System.Text.Json;
 
-
-// Importeren van sensordata.txt
-
-public sealed class SensorDataSingleton
+namespace Schoolproject.Sensordata
 {
-    private static SensorDataSingleton instance = null;
-    private static readonly object padlock = new object();
-    private SensorParserContext _parserContext;
-
-    // Constructor van de Singleton: wordt slechts één keer aangemaakt
-    private SensorDataSingleton()
+    public class SensorDataSingleton
     {
-        //Console.WriteLine(" SensorDataSingleton wordt aangemaakt!"); // <-- DEBUG OUTPUT
-        _parserContext = new SensorParserContext();
-        _parserContext.SetParser(new TemperatureSensorParser()); // Gebruik de juiste parser
+        private static SensorDataSingleton instance = null;
+        private static readonly object padlock = new object();
+        private List<SensorData> _sensors;
 
-        string projectRoot = Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory).Parent.Parent.Parent.FullName;
-        string path = Path.Combine(projectRoot, "Sensordata", "sensorData.txt");
-        Console.WriteLine($" Verwachte locatie van sensorData.txt: {path}"); // 🔍 DEBUG OUTPUT
-
-        // Controleer of sensorData.txt bestaat
-        if (File.Exists(path))
+        private SensorDataSingleton()
         {
-            Console.WriteLine(" sensorData.txt gevonden!");
-            string content = File.ReadAllText(path); // Lees de inhoud van sensorData.txt
-            var parsedData = _parserContext.Parse(content); // Parse de ruwe tekst naar key-value data
+            _sensors = new List<SensorData>();
+            LoadData();  // Laad data vanuit sensorData.txt
+        }
 
-            Console.WriteLine(" Parsed Data:");
-
-            foreach (var entry in parsedData)
+        public static SensorDataSingleton Instance
+        {
+            get
             {
-                Console.WriteLine("🔹 Nieuwe meting:");
-
-                foreach (var kv in entry)
+                lock (padlock)
                 {
-                    Console.WriteLine($"   {kv.Key}: {kv.Value}");
+                    if (instance == null)
+                    {
+                        instance = new SensorDataSingleton();
+                    }
+                    return instance;
                 }
-
-                // **JSON OUTPUT**
-                string json = JsonSerializer.Serialize(entry, new JsonSerializerOptions { WriteIndented = true });
-                Console.WriteLine($"JSON Output:\n{json}");
             }
         }
-        else
-        {
-            Console.WriteLine("sensorData.txt NIET gevonden!");
-        }
-    }
 
+        public List<SensorData> GetSensors() => _sensors;
 
-    // Singleton Instance: zorgt ervoor dat er maar één instantie van SensorDataSingleton is
-    public static SensorDataSingleton Instance
-    {
-        get
+        private void LoadData()
         {
-            lock (padlock) // Zorgt ervoor dat er geen twee instanties tegelijk worden aangemaakt (thread-safe)
+            try
             {
-                if (instance == null)
+                if (!File.Exists("sensorData.txt"))
                 {
-                    instance = new SensorDataSingleton();
+                    Console.WriteLine("Bestand sensorData.txt niet gevonden.");
+                    return;
                 }
-                return instance;
+
+                var lines = File.ReadAllLines("sensorData.txt");
+                foreach (var line in lines)
+                {
+                    try
+                    {
+                        if (string.IsNullOrWhiteSpace(line)) continue;
+
+                        var data = line.Split("name:");
+                        if (data.Length < 2) continue;
+
+                        var serialNumber = ExtractValue(data[0], "serial:");
+                        var name = ExtractValue(data[1], "", "temperature:");  // ✅ FIXED
+                        var temperature = ParseDouble(ExtractValue(data[1], "temperature:", "humidity:"));
+                        var humidity = ParseDouble(ExtractValue(data[1], "humidity:", "battery:"));
+                        var battery = ParseDouble(ExtractValue(data[1], "battery:", "timestamp:"));
+                        var timestamp = DateTime.Parse(ExtractValue(data[1], "timestamp:").Trim());
+
+                        _sensors.Add(new SensorData
+                        {
+                            SerialNumber = serialNumber,
+                            Name = name,
+                            Temperature = temperature,
+                            Humidity = humidity,
+                            Battery = battery,
+                            Timestamp = timestamp
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Fout bij verwerken van een regel: {ex.Message}");
+                    }
+                }
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Fout bij het inladen van sensordata: {ex.Message}");
+            }
+        }
+
+        private string ExtractValue(string input, string start, string end = null)
+        {
+            var startIndex = string.IsNullOrEmpty(start) ? 0 : input.IndexOf(start, StringComparison.OrdinalIgnoreCase);
+            if (startIndex == -1) return "";
+
+            startIndex += start.Length;
+            var endIndex = end != null ? input.IndexOf(end, startIndex, StringComparison.OrdinalIgnoreCase) : -1;
+
+            return endIndex == -1 ? input[startIndex..].Trim() : input[startIndex..endIndex].Trim();
+        }
+
+        private double ParseDouble(string value)
+        {
+            if (double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out double result))
+                return result;
+
+            return 0.0;  // Standaardwaarde bij fout
         }
     }
 }
